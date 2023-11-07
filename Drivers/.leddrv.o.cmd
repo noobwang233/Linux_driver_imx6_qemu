@@ -1,1 +1,0 @@
-cmd_/home/wta3wx/Linux/workspace/imx6_linux_driver/Drivers/leddrv.o := arm-linux-gnueabihf-ld -EL   -r -o /home/wta3wx/Linux/workspace/imx6_linux_driver/Drivers/leddrv.o /home/wta3wx/Linux/workspace/imx6_linux_driver/Drivers/testdrv.o 

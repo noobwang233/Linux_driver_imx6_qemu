@@ -42,4 +42,4 @@ get_dts:
 copy_dts:
 	cp *.dts /home/wta3wx/Linux/source_code/100ask_imx6ull-qemu/linux-4.9.88/arch/arm/boot/dts
 clean:
-	rm -rf *.o *app *.ko .*.o.d .*.cmd *.mod.* *.temp *.mod modules.order Module.symvers .tmp_versions
+	rm -rf *.o *app *.ko .*.o.d .*.cmd *.mod.* *.temp *.mod modules.order Module.symvers .tmp_versions .*.o.tmp .*.o
