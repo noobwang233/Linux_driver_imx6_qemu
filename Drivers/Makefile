@@ -15,7 +15,7 @@
 # cp *.ko $(ROOTFS_MNT)/lib/modules/4.9.88
 # arm-linux-gnueabihf-gcc -o testapp testapp.c
 # cp *app  $(ROOTFS_MNT)/lib/modules/4.9.88
-KERNELDIR := /home/wta3wx/Linux/workspace/imx6_linux_driver/linux-4.9.88
+KERNELDIR := $(shell pwd)/../linux-4.9.88
 CURRENT_PATH := $(shell pwd)
 #ROOTFS := /home/wta3wx/Linux/qemu/ubuntu-16.04_imx6ul_qemu_system/imx6ull-system-image/rootfs.img
 #ROOTFS_MNT := /home/wta3wx/mnt
