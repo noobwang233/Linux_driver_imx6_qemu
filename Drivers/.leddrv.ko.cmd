@@ -1,0 +1,1 @@
+cmd_/home/wta3wx/Linux/workspace/imx6_linux_driver/Drivers/leddrv.ko := arm-linux-gnueabihf-ld -EL -r  -T ./scripts/module-common.lds --build-id  -o /home/wta3wx/Linux/workspace/imx6_linux_driver/Drivers/leddrv.ko /home/wta3wx/Linux/workspace/imx6_linux_driver/Drivers/leddrv.o /home/wta3wx/Linux/workspace/imx6_linux_driver/Drivers/leddrv.mod.o ;  true
