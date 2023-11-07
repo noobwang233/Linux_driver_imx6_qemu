@@ -4,9 +4,9 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/home/wt/Linux/Linux_drivers/linux-5.4.31/arch/arm/include",
-                "/home/wt/Linux/Linux_drivers/linux-5.4.31/include",
-                "/home/wt/Linux/Linux_drivers/linux-5.4.31/arch/arm/include/generated"
+                "/home/wta3wx/Linux/source_code/100ask_imx6ull-qemu/linux-4.9.88/arch/arm/include",
+                "/home/wta3wx/Linux/source_code/100ask_imx6ull-qemu/linux-4.9.88/include",
+                "/home/wta3wx/Linux/source_code/100ask_imx6ull-qemu/linux-4.9.88/arch/arm/include/generated"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
