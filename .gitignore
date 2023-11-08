@@ -54,3 +54,17 @@ sound
 tmp
 usr
 virt
+*.tmp
+linux-4.9.88/arch/arm/boot/dts/modules.order
+linux-4.9.88/arch/arm/common/modules.builtin
+linux-4.9.88/arch/arm/common/modules.order
+modules*
+linux-4.9.88/vmlinux
+linux-4.9.88/System.map
+linux-4.9.88/Module.symvers
+linux-4.9.88/.version
+linux-4.9.88/.tmp_vmlinux2
+linux-4.9.88/.tmp_vmlinux1
+linux-4.9.88/.tmp_System.map
+*tmp*
+linux-4.9.88/arch/arm/vdso/vdso.so.dbg
