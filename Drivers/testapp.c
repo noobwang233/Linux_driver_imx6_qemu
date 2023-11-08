@@ -10,7 +10,7 @@ static char usrdata[] = {"usr data!"};
 
 int main(int argc, char *argv[])
 {
-    int fd, retvalue;
+    int fd, retvalue, i;
     char status;
 
 	/* 1. 判断参数 */
@@ -44,7 +44,12 @@ int main(int argc, char *argv[])
 		printf("Error cmd! Usage: %s <dev> <on | off> \n", argv[1]);
 		return -1;
     }
-
+//占用设备30s
+	for(i = 0; i < 30; i++)
+	{
+		sleep(5);
+		printf("delay %d s\r\n", i);
+	}
     /* 关闭设备 */
     retvalue = close(fd);
     if(retvalue < 0){

@@ -22,6 +22,9 @@ struct led_dev_t
     struct device_node *np;
     int gpio; /* led 所使用的 GPIO 编号 */
     struct miscdevice *misc;
+    spinlock_t lock;
+    struct platform_driver *p_driver;
+    bool status;
 };
 static struct file_operations testdrv_fop;
 struct platform_driver test_platform_driver;
@@ -33,17 +36,34 @@ static struct miscdevice led_miscdev = {
 };
 struct led_dev_t led_dev_0 = {
     .misc = &led_miscdev,
+    .p_driver = &test_platform_driver,
 };
 
 static int testdrv_open(struct inode *inode, struct file *filp)
 {
+    unsigned long flags;/*中断标记*/
+
     filp->private_data = &led_dev_0;
+    spin_lock_irqsave(&led_dev_0.lock, flags);//上锁
+    if(led_dev_0.status != true) //设备忙
+    {
+        spin_unlock_irqrestore(&led_dev_0.lock, flags);//释放锁
+        pr_err("testdrv busy!\n");
+        return -EBUSY;
+    }
+    led_dev_0.status = false;//占用设备
+    spin_unlock_irqrestore(&led_dev_0.lock, flags);//释放锁
     printk("testdrv open!\r\n");
     return 0;
 }
 
 static int testdrv_release(struct inode *inode, struct file *filp)
 {
+    unsigned long flags;/*中断标记*/
+
+    spin_lock_irqsave(&led_dev_0.lock, flags);//上锁
+    led_dev_0.status = true;//释放设备
+    spin_unlock_irqrestore(&led_dev_0.lock, flags);//释放锁
     printk("testdrv close!\r\n");
     return 0;
 }
@@ -107,6 +127,9 @@ static int testdrv_probe(struct platform_device *device)
 {
     int retvalue = 0;
 
+    /* 初始化自旋锁*/
+    spin_lock_init(&led_dev_0.lock);
+    led_dev_0.status = true;
     /* 注册字符设备驱动 */
     /* 查找设备结点 */
     led_dev_0.np = of_find_compatible_node(NULL , NULL , "led_gpio");
@@ -160,7 +183,7 @@ static int __init testdrv_init(void)
     int retvalue = 0;
 
     /* 注册platform驱动 */
-    retvalue = platform_driver_register(&test_platform_driver);
+    retvalue = platform_driver_register(led_dev_0.p_driver);
     if(retvalue != 0)
     {
         pr_err("platform driver register failed!\n");
@@ -173,7 +196,7 @@ static int __init testdrv_init(void)
 static void __exit testdrv_exit(void)
 {
     /* 注销platform驱动 */
-    platform_driver_unregister(&test_platform_driver);
+    platform_driver_unregister(led_dev_0.p_driver);
     printk("platform driver unregister success!\n");
 }
 
