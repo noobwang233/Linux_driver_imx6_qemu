@@ -21,9 +21,9 @@ CURRENT_PATH := $(shell pwd)
 #ROOTFS_MNT := /home/wta3wx/mnt
 DTBFS := /home/wta3wx/Linux/qemu/ubuntu-16.04_imx6ul_qemu_system/imx6ull-system-image
 QEMU_MNT := /home/wta3wx/qemu_mnt
-obj-m += leddrv.o
+obj-m += keydrv.o
 #leddrv.ko 有testdrv.o和led.o生成
-leddrv-objs = testdrv.o # led.o
+keydrv-objs = testkey.o # led.o
 build: kernel_modules
 
 kernel_modules:

@@ -6,8 +6,6 @@
 #include "stdlib.h"
 #include "string.h"
 
-static char usrdata[] = {"usr data!"};
-
 int main(int argc, char *argv[])
 {
     int fd, retvalue, i;
@@ -28,7 +26,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	/* 3. 写文件 */
+	/* 3. 读取key status */
 	if (0 == strcmp(argv[2], "off"))
 	{
 		status = 1;
