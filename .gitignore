@@ -68,3 +68,6 @@ linux-4.9.88/.tmp_vmlinux1
 linux-4.9.88/.tmp_System.map
 *tmp*
 linux-4.9.88/arch/arm/vdso/vdso.so.dbg
+Drivers/Module.symvers
+Drivers/leddrv.mod.c
+*app
