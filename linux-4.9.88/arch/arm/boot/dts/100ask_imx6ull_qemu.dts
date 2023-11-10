@@ -80,30 +80,21 @@
 	
 
 
-	gpio-keys@0 {
-			compatible = "gpio-keys";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_gpio_keys>;
-			status = "okay";
+	key_0 {
+		compatible = "key_gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_keys>;
+		status = "okay";
 
-			Key0{
-				label = "Key 0";
-				gpios = <&gpio5 1 GPIO_ACTIVE_HIGH>;
-				linux,code = <KEY_1>;
-			};
+		gpios = <&gpio5 1 GPIO_ACTIVE_HIGH>;
 	};
 
-	gpio-keys@1 {
-					compatible = "gpio-keys";
-					pinctrl-names = "default";
-					pinctrl-0 = <&pinctrl_gpio_key1>;
-					status = "okay";
-
-					Key0{
-							label = "Key 1";
-							gpios = <&gpio1 18 GPIO_ACTIVE_HIGH>;
-							linux,code = <KEY_2>;
-					};
+	key_1 {
+		compatible = "key_gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_key1>;
+		status = "okay";
+		gpios = <&gpio1 18 GPIO_ACTIVE_HIGH>;
 	};
 
 	leds {

@@ -80,7 +80,7 @@
 	
 
 
-	key_drv_0 {
+	key_0 {
 		compatible = "key_gpio";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_keys>;
@@ -89,7 +89,7 @@
 		gpios = <&gpio5 1 GPIO_ACTIVE_HIGH>;
 	};
 
-	key_drv_1 {
+	key_1 {
 		compatible = "key_gpio";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_key1>;
