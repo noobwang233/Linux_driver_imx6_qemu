@@ -14,10 +14,10 @@
 #include <linux/platform_device.h> //platform_device头文件
 #include <linux/of_platform.h> //platform of函数
 #include <asm/string.h>
-#include <linux/slab.h> //kmalloc头文件
+#include <linux/slab.h> //kzalloc头文件
 #include <linux/string.h>
 
-#define KEY_MAJOR 234
+#define KEY_MAJOR 233
 #define MAX_KEY_NUM 2 /* 最大设备数量 */
 
 /*private date*/
@@ -181,10 +181,10 @@ static int key_dev_init(struct key_dev_t **key_devs)
     (*key_devs)->key_cdev = cdev_alloc();//申请cdev字符设备的空间
     if((*key_devs)->key_cdev == NULL )
     {
-        pr_err("key_dev key_cdev kmalloc failed! \n");
+        pr_err("key_dev cdev_alloc() failed! \n");
         goto freegpio;
     }
-    printk("key_dev key_cdev kmalloc successfully!\n");
+    printk("key_dev cdev_alloc() successfully!\n");
 
     /*生成设备号*/
     #ifdef KEY_MAJOR
@@ -238,12 +238,19 @@ static int key_dev_init(struct key_dev_t **key_devs)
 //错误处理
 delcdev:
     cdev_del((*key_devs)->key_cdev);
+    printk("cdev_del success!\n");
 freedevt:
     unregister_chrdev_region((*key_devs)->key_cdev->dev, 1);
+    printk("unregister_chrdev_region success!\n");
 freecdev:
-    kfree((*key_devs)->key_cdev);
+    if((*key_devs)->key_cdev != NULL)
+    {
+        kfree((*key_devs)->key_cdev);
+        printk("kfree((*key_devs)->key_cdev) success!\n");
+    }
 freegpio:
     gpio_free((*key_devs)->gpio);
+    printk("gpio_free %d success!\n",(*key_devs)->gpio);
     return -EIO;
 }
 
@@ -266,13 +273,13 @@ static int key_drv_probe(struct platform_device *device)
     }
     printk("%s status okey!\n", device->name);
     //分配设备结构体空间
-    key_devs[key_dev_count] = kmalloc(sizeof(struct key_dev_t), GFP_KERNEL);
+    key_devs[key_dev_count] = kzalloc(sizeof(struct key_dev_t), GFP_KERNEL);
     if(key_devs[key_dev_count] == NULL )
     {
-        pr_err("key_dev kmalloc failed! \n");
+        pr_err("key_dev kzalloc failed! \n");
         return -EIO;
     }
-    printk("key_dev kmalloc successfully! %d\n", (int)key_devs[key_dev_count]);
+    printk("key_dev kzalloc successfully! %d\n", (int)key_devs[key_dev_count]);
     key_devs[key_dev_count]->key_pdev = device;
     key_devs[key_dev_count]->cls = key_cls;
     retvalue = key_dev_init(&key_devs[key_dev_count]);
