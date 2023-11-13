@@ -86,7 +86,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_keys>;
 		status = "okay";
-		key-gpio = <&gpio5 1 GPIO_ACTIVE_HIGH>;
+		key-gpio = <&gpio5 1 GPIO_ACTIVE_LOW>;
 	};
 
 	key_1 {
@@ -95,7 +95,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_key1>;
 		status = "okay";
-		key-gpio = <&gpio1 18 GPIO_ACTIVE_HIGH>;
+		key-gpio = <&gpio1 18 GPIO_ACTIVE_LOW>;
 	};
 
 	leds {
