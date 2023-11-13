@@ -81,20 +81,21 @@
 
 
 	key_0 {
+		num = <0>;
 		compatible = "key_gpio";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_keys>;
 		status = "okay";
-
-		gpios = <&gpio5 1 GPIO_ACTIVE_HIGH>;
+		key-gpio = <&gpio5 1 GPIO_ACTIVE_HIGH>;
 	};
 
 	key_1 {
+		num = <1>;
 		compatible = "key_gpio";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_key1>;
 		status = "okay";
-		gpios = <&gpio1 18 GPIO_ACTIVE_HIGH>;
+		key-gpio = <&gpio1 18 GPIO_ACTIVE_HIGH>;
 	};
 
 	leds {

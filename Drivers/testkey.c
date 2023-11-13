@@ -17,8 +17,8 @@
 #include <linux/slab.h> //kzalloc头文件
 #include <linux/string.h>
 
-#define KEY_MAJOR 233
-#define MAX_KEY_NUM 2 /* 最大设备数量 */
+#define KEY_MAJOR 234
+#define DEV_COUNT 2
 
 /*private date*/
 static u8 key_dev_count = 0; /* 设备计数 */
@@ -26,7 +26,7 @@ static struct class *key_cls;//设备类
 /* device struct 设备结构体*/
 struct key_dev_t
 {
-    unsigned int minor;
+    dev_t dt;
     struct platform_device *key_pdev;
     int gpio; /* key 所使用的 GPIO 编号 */
     spinlock_t lock; /*设备互斥访问自旋锁*/
@@ -41,7 +41,8 @@ const struct of_device_id keys_of_match_table[] = {
     {.compatible = "key_gpio",},
     {},
 };
-struct key_dev_t *key_devs[MAX_KEY_NUM];//device list
+struct key_dev_t *key_devs[DEV_COUNT] = {0};
+
 
 /* private function declear */
 // file_operation functions
@@ -55,7 +56,8 @@ static int key_drv_remove(struct platform_device *device);
 static int __init key_drv_init(void);
 static void __exit key_drv_exit(void);
 //private key init and deinit function
-static int key_dev_init(struct key_dev_t **key_dev);
+static int key_dev_init(struct key_dev_t **key_devs, u32 index);
+static int key_drv_deinit(struct key_dev_t **key_devs, u32 index);
 //
 
 
@@ -82,18 +84,34 @@ static struct platform_driver key_platform_driver = {
 static int key_drv_open(struct inode *inode, struct file *filp)
 {
     unsigned long flags;/*中断标记*/
+    u32 index;
 
-    struct key_dev_t *key_dev = container_of(&(inode->i_cdev), struct key_dev_t, key_cdev);//获取当前打开设备文件对应的设备结构体变量指针
-    filp->private_data = key_dev;
-    spin_lock_irqsave(&(key_dev->lock), flags);//上锁
-    if(key_dev->status != true) //设备忙
+    for(index = 0; index < DEV_COUNT; index++)
     {
-        spin_unlock_irqrestore(&(key_dev->lock), flags);//释放锁
+        if(key_devs[index] != NULL)
+        {
+            if(key_devs[index]->dt == inode->i_cdev->dev)
+                break;
+        }
+    }
+    if(index >= DEV_COUNT)
+    {
+        pr_err("can not find dev data in dev list!\n");
+        return -EIO;
+    }
+    filp->private_data = key_devs[index];
+    //struct key_dev_t *key_dev = container_of(inode->i_cdev, struct key_dev_t, key_cdev);//获取当前打开设备文件对应的设备结构体变量指针
+    printk("open device file: %s",key_devs[index]->key_pdev->name);
+
+    spin_lock_irqsave(&(key_devs[index]->lock), flags);//上锁
+    if(key_devs[index]->status != true) //设备忙
+    {
+        spin_unlock_irqrestore(&(key_devs[index]->lock), flags);//释放锁
         pr_err("key_drv busy!\n");
         return -EBUSY;
     }
-    key_dev->status = false;//占用设备
-    spin_unlock_irqrestore(&(key_dev->lock), flags);//释放锁
+    key_devs[index]->status = false;//占用设备
+    spin_unlock_irqrestore(&(key_devs[index]->lock), flags);//释放锁
     printk("key_drv open!\r\n");
     return 0;
 }
@@ -114,7 +132,6 @@ static ssize_t key_drv_read(struct file *filp, char __user *buf, size_t cnt, lof
 {
     int retvalue = 0;
     u8 status = 0;
-
     struct key_dev_t *key_dev = filp->private_data;
 
     printk(" read key_drv start!\r\n");
@@ -141,80 +158,78 @@ static ssize_t key_drv_write(struct file *filp, const char __user *buf, size_t c
     return 0;
 }
 /*
-key_devs: 按键设备的结构体指针list
+key_dev: 按键设备的结构体指针
 */
-static int key_dev_init(struct key_dev_t **key_devs)
+static int key_dev_init(struct key_dev_t **key_devs, u32 index)
 {
     int retvalue;
-
-    struct device_node *np = (*key_devs)->key_pdev->dev.of_node;
+    struct device_node *np = key_devs[index]->key_pdev->dev.of_node;
 
     /* 获取gpio号 */
-    (*key_devs)->gpio = of_get_named_gpio(np, "gpios", 0);
-    if ((*key_devs)->gpio <= 0)
+    key_devs[index]->gpio = of_get_named_gpio(np, "key-gpio", 0);
+    if (key_devs[index]->gpio <= 0)
     {
         pr_err("get gpio failed\n");
         return -EIO;
     }
-    printk("get gpio %d successfully! \n", (*key_devs)->gpio);
+    printk("get gpio %d successfully! \n", key_devs[index]->gpio);
 
     /* 申请gpio */
-    retvalue = gpio_request((*key_devs)->gpio, (*key_devs)->key_pdev->name);
+    retvalue = gpio_request(key_devs[index]->gpio, "key_gpio");
     if (retvalue != 0)
     {
         pr_err("request gpio failed\n");
         return -EIO;
     }
-    printk("request gpio %d successfully! \n", (*key_devs)->gpio);
+    printk("request gpio %d successfully! \n", key_devs[index]->gpio);
     /* 设置为输入 */
-    retvalue = gpio_direction_input((*key_devs)->gpio);
+    retvalue = gpio_direction_input(key_devs[index]->gpio);
     if (retvalue != 0)
     {
-        pr_err("set gpio %d input failed! \n", (*key_devs)->gpio);
+        pr_err("set gpio %d input failed! \n", key_devs[index]->gpio);
         goto freegpio;
     }
-    printk("set gpio %d input successfully! \n", (*key_devs)->gpio);
+    printk("set gpio %d input successfully! \n", key_devs[index]->gpio);
 
 
     
     /* 使用cdev注册字符设备 */
-    (*key_devs)->key_cdev = cdev_alloc();//申请cdev字符设备的空间
-    if((*key_devs)->key_cdev == NULL )
+    key_devs[index]->key_cdev = cdev_alloc();//申请cdev字符设备的空间
+    if(key_devs[index]->key_cdev == NULL )
     {
-        pr_err("key_dev cdev_alloc() failed! \n");
+        pr_err("key_dev key_cdev kzalloc failed! \n");
         goto freegpio;
     }
-    printk("key_dev cdev_alloc() successfully!\n");
+    printk("key_dev key_cdev kzalloc successfully!\n");
 
     /*生成设备号*/
     #ifdef KEY_MAJOR
-        (*key_devs)->key_cdev->dev = MKDEV(KEY_MAJOR, key_dev_count);
-        retvalue = register_chrdev_region((*key_devs)->key_cdev->dev, 1, (*key_devs)->key_pdev->name);
+        key_devs[index]->dt = MKDEV(KEY_MAJOR, index);
+        retvalue = register_chrdev_region(key_devs[index]->dt, 1, key_devs[index]->key_pdev->name);
         if(retvalue != 0)
         {
-            pr_err("key_dev dev_t register failed! \n");
-            retvalue = alloc_chrdev_region(&((*key_devs)->key_cdev->dev), 0, 1, (*key_devs)->key_pdev->name);
+            pr_err("key_dev dev_t register failed! start alloc register!\n");
+            retvalue = alloc_chrdev_region(&(key_devs[index]->dt), 0, 1, key_devs[index]->key_pdev->name);
             if(retvalue != 0)
             {
-                pr_err("key_dev dev_t alloc register failed! \n");
+                pr_err("key_dev dev_t register failed! \n");
                 goto freecdev;
             }
         }
     #else
-        retvalue = alloc_chrdev_region(&((*key_devs)->key_cdev->dev), 0, 1, (*key_devs)->key_pdev->name);
+        retvalue = alloc_chrdev_region(&(key_devs[index]->dt), 0, 1, key_devs[index]->key_pdev->name);
         if(retvalue != 0)
         {
             pr_err("key_dev dev_t register failed! \n");
             goto freecdev;
         }
     #endif
-    (*key_devs)->minor = MINOR((*key_devs)->key_cdev->dev);
-    printk("key register dev_t success! major=%d,minor=%d\r\n", MAJOR((*key_devs)->key_cdev->dev), MINOR((*key_devs)->key_cdev->dev));
+    printk("key register dev_t success! major=%d,minor=%d\r\n", MAJOR(key_devs[index]->dt), MINOR(key_devs[index]->dt));
     /*注册字符设备*/
-    (*key_devs)->key_cdev->owner = THIS_MODULE;
-    cdev_init((*key_devs)->key_cdev, &key_drv_fop);
+    key_devs[index]->key_cdev->owner = THIS_MODULE;
+    cdev_init(key_devs[index]->key_cdev, &key_drv_fop);
     printk("cdev_init success!\n");
-    retvalue = cdev_add((*key_devs)->key_cdev, (*key_devs)->key_cdev->dev, 1);
+    retvalue = cdev_add(key_devs[index]->key_cdev, key_devs[index]->dt, 1);
     if(retvalue != 0) 
     {
         pr_err("cannot register cdev driver\n");
@@ -222,42 +237,60 @@ static int key_dev_init(struct key_dev_t **key_devs)
     }
     printk("cdev_add success!\n");
     /*生成设备节点*/
-    (*key_devs)->dev = device_create((*key_devs)->cls, NULL,  (*key_devs)->key_cdev->dev,  NULL,  "key_dev_%d", key_dev_count);
-    if((*key_devs)->dev == NULL)
+    key_devs[index]->dev = device_create(key_devs[index]->cls, NULL,  key_devs[index]->dt,  NULL,  "key_dev_%d", index);
+    if(key_devs[index]->dev == NULL)
     {
         pr_err("device_create failed!\n");
         goto delcdev;
     }
-    printk("key_dev_%d create success!\r\n", key_dev_count);
+    printk("key_dev_%d create success!\r\n", index);
     /* 初始化设备自旋锁*/
-    spin_lock_init(&(*key_devs)->lock);
-    (*key_devs)->status = true;
-    printk("key_dev_%d spin_lock_init success!\r\n", key_dev_count);
+    spin_lock_init(&key_devs[index]->lock);
+    key_devs[index]->status = true;
     return 0;
 
 //错误处理
 delcdev:
-    cdev_del((*key_devs)->key_cdev);
-    printk("cdev_del success!\n");
+    cdev_del(key_devs[index]->key_cdev);
 freedevt:
-    unregister_chrdev_region((*key_devs)->key_cdev->dev, 1);
-    printk("unregister_chrdev_region success!\n");
+    unregister_chrdev_region(key_devs[index]->dt, 1);
 freecdev:
-    if((*key_devs)->key_cdev != NULL)
+    if (key_devs[index]->key_cdev != NULL)
     {
-        kfree((*key_devs)->key_cdev);
-        printk("kfree((*key_devs)->key_cdev) success!\n");
+        kfree(key_devs[index]->key_cdev);
     }
 freegpio:
-    gpio_free((*key_devs)->gpio);
-    printk("gpio_free %d success!\n",(*key_devs)->gpio);
+    gpio_free(key_devs[index]->gpio);
     return -EIO;
 }
 
+static int key_drv_deinit(struct key_dev_t **key_devs, u32 index)
+{
+
+    device_destroy(key_devs[index]->cls, key_devs[index]->dt);
+    printk("device_destroy success!\n");
+    cdev_del(key_devs[index]->key_cdev);
+    printk("cdev_del success!\n");
+    unregister_chrdev_region(key_devs[index]->dt, 1);
+    printk("unregister_chrdev_region success!\n");
+    if (key_devs[index]->key_cdev != NULL)
+    {
+        kfree(key_devs[index]->key_cdev);
+    }
+    gpio_free(key_devs[index]->gpio);
+    printk("gpio_free success!\n");
+    if (key_devs[index] != NULL)
+    {
+        kfree(key_devs[index]);
+        printk("kfree(key_devs[index]) success!\n");
+    }
+    return 0;
+}
 
 static int key_drv_probe(struct platform_device *device)
 {
     int retvalue = 0;
+    u32 index;
     const char *str;
     struct device_node *np = device->dev.of_node;
 
@@ -272,67 +305,65 @@ static int key_drv_probe(struct platform_device *device)
         return -EINVAL;
     }
     printk("%s status okey!\n", device->name);
-    //分配设备结构体空间
-    key_devs[key_dev_count] = kzalloc(sizeof(struct key_dev_t), GFP_KERNEL);
-    if(key_devs[key_dev_count] == NULL )
+    //get index
+    retvalue = of_property_read_u32_array(np, "num", &index, 1);
+    if(retvalue < 0)
     {
-        pr_err("key_dev kzalloc failed! \n");
+        pr_err("can not get index !\n");
+        return -EINVAL;
+    }
+    printk("get index = %d \n", index);
+    if(key_devs[index] != NULL)
+    {
+        printk("key_devs[index] != NULL, start deinit!\n");
+        key_drv_deinit(key_devs, index);
+    }
+    //分配设备结构体空间
+    key_devs[index] = kzalloc(sizeof(struct key_dev_t), GFP_KERNEL);
+    if(key_devs[index] == NULL )
+    {
+        pr_err("key_devs[index] kzalloc failed! \n");
         return -EIO;
     }
-    printk("key_dev kzalloc successfully! %d\n", (int)key_devs[key_dev_count]);
-    key_devs[key_dev_count]->key_pdev = device;
-    key_devs[key_dev_count]->cls = key_cls;
-    retvalue = key_dev_init(&key_devs[key_dev_count]);
-    printk("%s init() success! return value %d\r\n",key_devs[key_dev_count]->key_pdev->name, retvalue);
+    printk("key_dev kzalloc successfully!\n");
+    key_devs[index]->key_pdev = device;
+    key_devs[index]->cls = key_cls;
+    retvalue = key_dev_init(key_devs, index);
     if(retvalue != 0)
     {
-        printk("free key_dev\r\n");
         goto freekey_dev;
     }
-    printk("%s probe() success!\r\n",key_devs[key_dev_count]->key_pdev->name);
+    printk("%s probe() success!\r\n",key_devs[index]->key_pdev->name);
     key_dev_count++;
     return 0;
 
 freekey_dev:
-    if (key_devs[key_dev_count] != NULL)
-    {
-        kfree(key_devs[key_dev_count]);
-        printk("kfree(key_dev) success!\n");
-    }
+    if (key_devs[index] != NULL)
+        kfree(key_devs[index]);
     return retvalue;
 }
 
 static int key_drv_remove(struct platform_device *device)
 {
-    unsigned int i;
-    /* 注销字符设备 */
-    printk("platform_device %s!\r\n", device->name);
-    for(i = 0; i <= MAX_KEY_NUM; i++)
+    u32 index;
+
+    for(index = 0 ; index <= DEV_COUNT; index++)
     {
-        if(!strcmp(key_devs[i]->key_pdev->name, device->name))
-            break;
+        if(key_devs[index] != NULL)
+        {
+            if(!strcmp(key_devs[index]->key_pdev->name, device->name))
+                break;
+        }
     }
-    if(i > key_dev_count)
+    if(index >= DEV_COUNT)
     {
-        pr_err("can not find device in local list!\n");
+        pr_err("can not find dev in dev list!\n");
         return -EIO;
     }
-    printk("%s remove() key_dev address %d!\r\n",key_devs[i]->key_pdev->name, (int)key_devs[i]);
-    device_destroy(key_devs[i]->cls, key_devs[i]->key_cdev->dev);
-    printk("device_destroy success!\n");
-    cdev_del(key_devs[i]->key_cdev);
-    printk("cdev_del success!\n");
-    unregister_chrdev_region(key_devs[i]->key_cdev->dev, 1);
-    printk("unregister_chrdev_region success!\n");
-    kfree(key_devs[i]->key_cdev);
-    printk("kfree(key_devs[i]->key_cdev) success!\n");    
-    gpio_free(key_devs[i]->gpio);
-    printk("gpio_free %d success!\n", key_devs[i]->gpio);
-    if (key_devs[i] != NULL)
-    {
-        kfree(key_devs[i]);
-        printk("kfree(key_dev) success!\n");
-    }
+    /* 注销字符设备 */
+    printk("%s remove() key_dev address %d!\r\n",key_devs[index]->key_pdev->name,(int)key_devs[index]);
+    key_drv_deinit(key_devs, index);
+    printk("%s remove() success!\r\n",key_devs[index]->key_pdev->name);
     key_dev_count--;
     return 0;
 }
