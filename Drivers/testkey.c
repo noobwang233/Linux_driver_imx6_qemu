@@ -87,11 +87,11 @@ static struct platform_driver key_platform_driver = {
 };
 
 /* 定时器回调函数 */ 
-void key_time_function(struct timer_list *arg) 
+void key_time_function(unsigned long arg) 
 {
     u8 value;
     unsigned long flags;
-    struct key_dev_t *key_dev = container_of(arg, struct key_dev_t, timer);
+    struct key_dev_t *key_dev = (struct key_dev_t *)arg;
 
     spin_lock_irqsave(&key_dev->lock, flags);
     value = gpio_get_value(key_dev->gpio);
@@ -104,6 +104,7 @@ void key_time_function(struct timer_list *arg)
     }
     else
     {
+        printk("invalid %d\n", value);
         //操作无效不更改键值
     }
     spin_unlock_irqrestore(&key_dev->lock, flags);
@@ -393,7 +394,9 @@ static int key_drv_probe(struct platform_device *device)
     printk("key_dev kzalloc successfully!\n");
     key_devs[index]->key_pdev = device;
     key_devs[index]->cls = key_cls;
-    timer_setup(&key_devs[index]->timer, key_time_function, 0);
+    init_timer(&key_devs[index]->timer); /* 初始化定时器 */
+    key_devs[index]->timer.function = key_time_function; /* 设置定时处理函数 */
+    key_devs[index]->timer.data = (unsigned long)(key_devs[index]); //设置定时器处理函数的传入参数为设备结构体地址
     retvalue = key_dev_init(key_devs, index);
     if(retvalue != 0)
     {
@@ -474,7 +477,7 @@ irqreturn_t key_irq_handler(int irq, void *dev)
     spin_lock(&((struct key_dev_t *)dev)->lock);
     value = gpio_get_value(((struct key_dev_t *)dev)->gpio);
     atomic_set(&((struct key_dev_t *)dev)->key_value_temp, value);
-    // printk("gpio %d key_value_temp %d!\n",((struct key_dev_t *)dev)->gpio, value);
+    printk("gpio %d key_value_temp %d!\n",((struct key_dev_t *)dev)->gpio, value);
     mod_timer(&((struct key_dev_t *)dev)->timer, jiffies + msecs_to_jiffies(15));//延迟15ms
     spin_unlock(&((struct key_dev_t *)dev)->lock);
     return IRQ_RETVAL(IRQ_HANDLED);

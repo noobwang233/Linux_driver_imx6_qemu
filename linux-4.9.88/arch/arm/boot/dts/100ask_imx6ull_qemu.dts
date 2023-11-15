@@ -87,6 +87,8 @@
 		pinctrl-0 = <&pinctrl_gpio_keys>;
 		status = "okay";
 		key-gpio = <&gpio5 1 GPIO_ACTIVE_LOW>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
 	};
 
 	key_1 {
@@ -96,6 +98,8 @@
 		pinctrl-0 = <&pinctrl_gpio_key1>;
 		status = "okay";
 		key-gpio = <&gpio1 18 GPIO_ACTIVE_LOW>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <18 IRQ_TYPE_EDGE_FALLING>;
 	};
 
 	led_0 {
