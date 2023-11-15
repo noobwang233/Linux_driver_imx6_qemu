@@ -20,8 +20,8 @@
 
 #define KEY_MAJOR 234
 #define DEV_COUNT 2
-#define KEY_PUSH 0
-#define KEY_RELEASED 1
+#define KEY_PUSH 1
+#define KEY_RELEASED 0
 /*private date*/
 static u8 key_dev_count = 0; /* 设备计数 */
 static struct class *key_cls;//设备类

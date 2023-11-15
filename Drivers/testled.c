@@ -17,7 +17,8 @@
 
 #define LED_MAJOR 235
 #define DEV_COUNT 4 // 最多4个led
-
+#define LED_ON 1
+#define LED_OFF 0
 /*private date*/
 static u8 led_dev_count = 0; /* 设备计数 */
 static struct class *led_cls;//设备类
@@ -166,13 +167,10 @@ static ssize_t led_drv_write(struct file *filp, const char __user *buf, size_t c
     }
     switch (cmd)
     {
-    case '0':// GPIO_ACTIVE_LOW
-        gpio_set_value(led_dev->gpio, 0);
-        printk("led on\n");
-        break;
-    case '1':
-        gpio_set_value(led_dev->gpio, 1);
-        printk("led off\n");
+    case LED_ON:// GPIO_ACTIVE_LOW
+    case LED_OFF:
+        gpio_set_value(led_dev->gpio, cmd);
+        printk("led %s\n",(cmd == LED_ON ? "on" : "off"));
         break;
     default:
         gpio_set_value(led_dev->gpio, (gpio_get_value(led_dev->gpio)==0? 1:0));
@@ -206,8 +204,8 @@ static int led_dev_init(struct led_dev_t **led_devs, u32 index)
         return -EIO;
     }
     printk("request gpio %d successfully! \n", led_devs[index]->gpio);
-    /* 设置为输入 */
-    retvalue = gpio_direction_output(led_devs[index]->gpio, 1);
+    /* 设置为输出 */
+    retvalue = gpio_direction_output(led_devs[index]->gpio, LED_OFF);
     if (retvalue != 0)
     {
         pr_err("set gpio %d input failed! \n", led_devs[index]->gpio);

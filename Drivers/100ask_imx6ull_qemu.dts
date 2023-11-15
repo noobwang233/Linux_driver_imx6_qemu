@@ -77,8 +77,6 @@
 			linux,rc-map-name = "rc-100ask-nec";
 			status = "okay";
 	};
-	
-
 
 	key_0 {
 		num = <0>;
