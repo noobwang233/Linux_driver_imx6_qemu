@@ -9,9 +9,11 @@
 int main(int argc, char *argv[])
 {
     int fd, retvalue;
+    int led_fd;
     char *filename;
     unsigned char cnt = 0;
     char readbuf[1];
+    char value = 0;
 
     if(argc != 2)
     {
@@ -28,21 +30,31 @@ int main(int argc, char *argv[])
         printf("Can't open file %s\r\n", filename);
         return -1;
     }
-
-    retvalue = read(fd, readbuf, 1);
-    if(retvalue < 0){
-        printf("write file %s failed!\r\n", filename);
-        return -1;
-    }
-    printf("key status: %s \r\n", (readbuf[0] == 1 ? "on":"off"));
-
-    /* 模拟占用 25S LED */
-    while(1) {
-        sleep(5);
-        cnt++;
-        printf("App running times:%d\r\n", cnt);
-        if(cnt >= 5)
-            break;
+    
+    while(1)
+    {
+        retvalue = read(fd, readbuf, 1);
+        if(retvalue < 0){
+            printf("read file %s failed!\r\n", filename);
+            return -1;
+        }
+        printf("key status: %s \r\n", (readbuf[0] == 0 ? "pushed":"released"));
+        // led_fd = open("/dev/led_dev_0", O_RDWR);
+        // if(led_fd < 0)
+        // {
+        //     printf("Can't open file /dev/led_dev_0\r\n");
+        //     return -1;
+        // }
+        // retvalue = write(led_fd, &value, 1);
+        // if(retvalue < 0){
+        //     printf("write file /dev/led_dev_0 failed!\r\n");
+        //     return -1;
+        // }
+        // retvalue = close(led_fd);
+        // if(retvalue < 0){
+        //     printf("Can't close file /dev/led_dev_0\r\n");
+        //     return -1;
+        // }
     }
 
     /* 关闭设备 */
