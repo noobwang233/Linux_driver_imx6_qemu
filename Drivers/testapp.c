@@ -11,9 +11,11 @@ int main(int argc, char *argv[])
     int fd, retvalue;
     int led_fd;
     char *filename;
-    unsigned char cnt = 0;
+    char *ledfilename;
+    unsigned char num = 0;
     char readbuf[1];
     char value = 0;
+    fd_set writefds;
 
     if(argc != 2)
     {
@@ -30,7 +32,8 @@ int main(int argc, char *argv[])
         printf("Can't open file %s\r\n", filename);
         return -1;
     }
-    
+    num = atoi(&filename[strlen(filename) - 1]);
+    printf("key %d!\n", num);
     while(1)
     {
         retvalue = read(fd, readbuf, 1);
@@ -38,21 +41,42 @@ int main(int argc, char *argv[])
             printf("read file %s failed!\r\n", filename);
             return -1;
         }
-        printf("key status: %s \r\n", (readbuf[0] == 1 ? "pushed":"released"));
-        led_fd = open("/dev/led_dev_0", O_RDWR);
+        printf("key %d status: %s \r\n", num,(readbuf[0] == 1 ? "pushed":"released"));
+        sprintf(ledfilename, "/dev/led_dev_%d", num);
+        led_fd = open(ledfilename, O_RDWR | O_NONBLOCK);
         if(led_fd < 0)
         {
-            printf("Can't open file /dev/led_dev_0\r\n");
+            printf("Can't open file %s\r\n", ledfilename);
             return -1;
         }
-        retvalue = write(led_fd, &readbuf[0], 1);
-        if(retvalue < 0){
-            printf("write file /dev/led_dev_0 failed!\r\n");
-            return -1;
+        FD_ZERO(&writefds);
+        FD_SET(led_fd, &writefds);
+        retvalue = select(led_fd + 1, NULL, &writefds, NULL, NULL);
+        switch (retvalue) 
+        {
+            case 0: /* 超时 */ 
+            /* 用户自定义超时处理 */
+                printf("wirte %s time out!\n", ledfilename);
+                break; 
+            case -1: /* 错误 */ 
+            /* 用户自定义错误处理 */ 
+                printf("wirte %s error!\n", ledfilename);
+                return -1;
+                break; 
+            default: 
+                if(FD_ISSET(led_fd, &writefds)) 
+                {
+                    retvalue = write(led_fd, &readbuf[0], 1);
+                    if(retvalue < 0){
+                        printf("write file %s failed!\r\n", ledfilename);
+                        return -1;
+                    }
+                }
         }
+
         retvalue = close(led_fd);
         if(retvalue < 0){
-            printf("Can't close file /dev/led_dev_0\r\n");
+            printf("Can't close file %s\r\n", ledfilename);
             return -1;
         }
     }

@@ -14,11 +14,14 @@
 #include <asm/string.h>
 #include <linux/slab.h> //kzalloc头文件
 #include <linux/string.h>
+#include <linux/poll.h>
 
 #define LED_MAJOR 235
 #define DEV_COUNT 4 // 最多4个led
 #define LED_ON 1
 #define LED_OFF 0
+#define LED_FREE 1
+#define LED_BUSY 0
 /*private date*/
 static u8 led_dev_count = 0; /* 设备计数 */
 static struct class *led_cls;//设备类
@@ -29,7 +32,7 @@ struct led_dev_t
     struct platform_device *led_pdev;
     int gpio; /* led 所使用的 GPIO 编号 */
     spinlock_t lock;
-    bool status; /*设备状态*/
+    atomic_t status; /*设备状态*/
     struct cdev *led_cdev; /*字符设备结构体*/
     struct class *cls;
     struct device *dev;
@@ -50,6 +53,7 @@ static int led_drv_open(struct inode *inode, struct file *filp);
 static int led_drv_release(struct inode *inode, struct file *filp);
 static ssize_t led_drv_read(struct file *filp, char __user *buf, size_t cnt, loff_t *offt);
 static ssize_t led_drv_write(struct file *filp, const char __user *buf, size_t cnt, loff_t *offt);
+unsigned int led_drv_poll(struct file *filp, struct poll_table_struct *wait);
 static int led_drv_probe(struct platform_device *device);
 static int led_drv_remove(struct platform_device *device);
 //module init and exit
@@ -66,6 +70,7 @@ static struct file_operations led_drv_fop = {
     .release = led_drv_release,
     .write = led_drv_write,
     .read = led_drv_read,
+    .poll = led_drv_poll,
 };
 /* 用于注册平台驱动的platform_driver结构体 */
 static struct platform_driver led_platform_driver = {
@@ -81,7 +86,6 @@ static struct platform_driver led_platform_driver = {
 
 static int led_drv_open(struct inode *inode, struct file *filp)
 {
-    unsigned long flags;/*中断标记*/
     u32 index;
 
     for(index = 0; index < DEV_COUNT; index++)
@@ -100,27 +104,25 @@ static int led_drv_open(struct inode *inode, struct file *filp)
     filp->private_data = led_devs[index];
     printk("open device file: %s",led_devs[index]->led_pdev->name);
 
-    spin_lock_irqsave(&(led_devs[index]->lock), flags);//上锁
-    if(led_devs[index]->status != true) //设备忙
-    {
-        spin_unlock_irqrestore(&(led_devs[index]->lock), flags);//释放锁
-        pr_err("led_drv busy!\n");
-        return -EBUSY;
-    }
-    led_devs[index]->status = false;//占用设备
-    spin_unlock_irqrestore(&(led_devs[index]->lock), flags);//释放锁
     printk("led_drv open!\r\n");
     return 0;
 }
+unsigned int led_drv_poll(struct file *filp, struct poll_table_struct *wait)
+{
+    unsigned int mask = 0;
+    struct led_dev_t *led_dev = filp->private_data;
 
+    /*应用程序添加到等待队列中*/
+    poll_wait(filp, &led_dev->w_wait_list, wait);
+  
+    if(atomic_read(&led_dev->status) == LED_FREE)/* 如果设备事件有效 */
+    {
+        mask = POLLOUT; /* POLLOUT */
+    }
+    return mask;
+}
 static int led_drv_release(struct inode *inode, struct file *filp)
 {
-    unsigned long flags;/*中断标记*/
-    
-    struct led_dev_t *led_dev = filp->private_data;
-    spin_lock_irqsave(&(led_dev->lock), flags);//上锁
-    led_dev->status = true;//释放设备
-    spin_unlock_irqrestore(&(led_dev->lock), flags);//释放锁
     printk("led_drv close!\r\n");
     return 0;
 }
@@ -153,8 +155,25 @@ static ssize_t led_drv_write(struct file *filp, const char __user *buf, size_t c
     int retvalue = 0;
     u8 cmd = 0;
     struct led_dev_t *led_dev = filp->private_data;
-    
+
+    // 检查是否设置了O_NONBLOCK标志
+    if (filp->f_flags & O_NONBLOCK) 
+    {
+        //非阻塞写入
+        if(atomic_read(&led_dev->status) != LED_FREE)
+        {
+            pr_err("%s busy!\n",led_dev->led_pdev->name);
+            return -EBUSY;
+        }
+    }
+    else {
+        //阻塞写入
+        retvalue = wait_event_interruptible(led_dev->w_wait_list, atomic_read(&led_dev->status) == LED_FREE);//设备忙就加入等待队列
+        if(retvalue)
+            return retvalue;
+    }
     /* 从用户空间读取数据 */
+    atomic_set(&led_dev->status, LED_BUSY);//start wirte led busy
     retvalue = copy_from_user(&cmd, buf, sizeof(cmd));
     if(retvalue == 0)
     {
@@ -163,6 +182,7 @@ static ssize_t led_drv_write(struct file *filp, const char __user *buf, size_t c
     else
     {
         printk("led_drv send data failed!\r\n");
+        atomic_set(&led_dev->status, LED_FREE);//free led
         return -EIO;
     }
     switch (cmd)
@@ -176,6 +196,11 @@ static ssize_t led_drv_write(struct file *filp, const char __user *buf, size_t c
         gpio_set_value(led_dev->gpio, (gpio_get_value(led_dev->gpio)==0? 1:0));
         printk("led trigger\n");
         break;
+    }
+    atomic_set(&led_dev->status, LED_FREE);
+    if(waitqueue_active(&led_dev->w_wait_list))
+    {
+        wake_up_interruptible(&led_dev->w_wait_list);
     }
     return 0;
 }
@@ -266,7 +291,10 @@ static int led_dev_init(struct led_dev_t **led_devs, u32 index)
     printk("led_dev_%d create success!\r\n", index);
     /* 初始化设备自旋锁*/
     spin_lock_init(&led_devs[index]->lock);
-    led_devs[index]->status = true;
+    atomic_set(&led_devs[index]->status, LED_FREE);
+    /*初始化等待队列*/
+    init_waitqueue_head(&led_devs[index]->r_wait_list);
+    init_waitqueue_head(&led_devs[index]->w_wait_list);
     return 0;
 
 //错误处理

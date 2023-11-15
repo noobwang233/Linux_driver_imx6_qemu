@@ -36,6 +36,7 @@ struct key_dev_t
     bool dev_status; /*设备状态*/
     atomic_t key_value; /*按键状态*/
     atomic_t key_value_temp; /*按键暂时状态*/
+    atomic_t last_value; /*上次按键状态*/
     struct cdev *key_cdev; /*字符设备结构体*/
     struct class *cls;
     struct device *dev;
@@ -160,7 +161,6 @@ static ssize_t key_drv_read(struct file *filp, char __user *buf, size_t cnt, lof
 {
     int retvalue = 0;
     struct key_dev_t *key_dev = filp->private_data;
-    static atomic_t last_value = ATOMIC_INIT(KEY_RELEASED);
 
     /*判断当前文件描述符是阻塞还是非阻塞*/
     if(filp->f_flags & O_NONBLOCK)
@@ -174,11 +174,11 @@ static ssize_t key_drv_read(struct file *filp, char __user *buf, size_t cnt, lof
         /* 阻塞访问 */
         /* 加入等待队列，当event不为0时,即按键状态改变时，才会被唤醒 */
         printk(" block read!\r\n");
-        retvalue = wait_event_interruptible(key_dev->wait_list, atomic_read(&key_dev->key_value) != atomic_read(&last_value));
+        retvalue = wait_event_interruptible(key_dev->wait_list, atomic_read(&key_dev->key_value) != atomic_read(&key_dev->last_value));
         if(retvalue)
             return retvalue;
     }
-    atomic_set(&last_value, atomic_read(&key_dev->key_value));//记录键值
+    atomic_set(&key_dev->last_value, atomic_read(&key_dev->key_value));//记录键值
     /* 向用户空间发送数据 */
     retvalue = copy_to_user(buf, &key_dev->key_value, sizeof(key_dev->key_value));
     if(retvalue == 0)
@@ -310,6 +310,7 @@ static int key_dev_init(struct key_dev_t **key_devs, u32 index)
     //初始化等待队列
     init_waitqueue_head(&key_devs[index]->wait_list);
     atomic_set(&key_devs[index]->key_value, KEY_RELEASED);
+    atomic_set(&key_devs[index]->last_value, KEY_RELEASED);
     return 0;
 
 //错误处理
