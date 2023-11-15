@@ -9,16 +9,14 @@
 #include <linux/gpio.h>     //gpio子系统相关头文件
 #include <linux/of_gpio.h>  //of_gpio函数相关头文件
 #include <linux/of.h>       //of_函数相关头文件
-#include <linux/miscdevice.h> //miscdevice头文件
 #include <linux/platform_device.h> //platform_device头文件
 #include <linux/of_platform.h> //platform of函数
 #include <asm/string.h>
 #include <linux/slab.h> //kzalloc头文件
 #include <linux/string.h>
-#include <linux/interrupt.h> //中断相关头文件
 
 #define LED_MAJOR 235
-#define DEV_COUNT 2
+#define DEV_COUNT 4 // 最多4个led
 
 /*private date*/
 static u8 led_dev_count = 0; /* 设备计数 */
@@ -34,7 +32,8 @@ struct led_dev_t
     struct cdev *led_cdev; /*字符设备结构体*/
     struct class *cls;
     struct device *dev;
-    wait_queue_head_t wait_list; //等待队列
+    wait_queue_head_t r_wait_list; //读等待队列
+    wait_queue_head_t w_wait_list; //写等待队列
 };
 // match table
 const struct of_device_id leds_of_match_table[] = {
@@ -155,7 +154,7 @@ static ssize_t led_drv_write(struct file *filp, const char __user *buf, size_t c
     struct led_dev_t *led_dev = filp->private_data;
     
     /* 从用户空间读取数据 */
-    retvalue = copy_from_user(&cmd, buf, cnt);
+    retvalue = copy_from_user(&cmd, buf, sizeof(cmd));
     if(retvalue == 0)
     {
         printk("led_drv send data ok!\r\n");
@@ -167,11 +166,11 @@ static ssize_t led_drv_write(struct file *filp, const char __user *buf, size_t c
     }
     switch (cmd)
     {
-    case 0:// GPIO_ACTIVE_LOW
+    case '0':// GPIO_ACTIVE_LOW
         gpio_set_value(led_dev->gpio, 0);
         printk("led on\n");
         break;
-    case 1:
+    case '1':
         gpio_set_value(led_dev->gpio, 1);
         printk("led off\n");
         break;
@@ -191,7 +190,7 @@ static int led_dev_init(struct led_dev_t **led_devs, u32 index)
     struct device_node *np = led_devs[index]->led_pdev->dev.of_node;
 
     /* 获取gpio号 */
-    led_devs[index]->gpio = of_get_named_gpio(np, "led-gpio", 0);
+    led_devs[index]->gpio = of_get_named_gpio(np, "gpios", 0);
     if (led_devs[index]->gpio <= 0)
     {
         pr_err("get gpio failed\n");

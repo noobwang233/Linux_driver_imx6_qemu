@@ -98,36 +98,41 @@
 		key-gpio = <&gpio1 18 GPIO_ACTIVE_LOW>;
 	};
 
-	leds {
+	led_0 {
+		num = <0>;
 		compatible = "led_gpio";
-		led_0 {
-			status = "okay";
-			gpios = <&gpio5 3 GPIO_ACTIVE_LOW>;
+		status = "okay";
+		gpios = <&gpio5 3 GPIO_ACTIVE_LOW>;
 
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_led_0>;
-		}
-		led_1 {
-			status = "okay";
-			gpios = <&gpio1 3 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_led_0>;
+	};
+	led_1 {
+		num = <1>;
+		compatible = "led_gpio";
+		status = "okay";
+		gpios = <&gpio1 3 GPIO_ACTIVE_LOW>;
 
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_led_1>;
-		}
-		led_2 {
-			status = "okay";
-			gpios = <&gpio1 5 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_led_1>;
+	};
+	led_2 {
+		num = <2>;
+		compatible = "led_gpio";
+		status = "okay";
+		gpios = <&gpio1 5 GPIO_ACTIVE_LOW>;
 
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_led_2>;
-		}
-		led_3 {
-			status = "okay";
-			gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_led_2>;
+	};
+	led_3 {
+		num = <3>;
+		compatible = "led_gpio";
+		status = "okay";
+		gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
 
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_led_3>;
-		}
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_led_3>;
 	};
 };
 
@@ -389,7 +394,7 @@
 			
 		pinctrl_led_0: ledgrp0 {
 			fsl,pins = <
-				MX6UL_PAD_GPIO5_IO03__GPIO5_IO03            0x000010B0
+				MX6UL_PAD_SNVS_TAMPER3__GPIO5_IO03            0x000010B0
 			>;
 		};
 		pinctrl_led_1: ledgrp1 {
