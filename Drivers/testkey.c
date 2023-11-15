@@ -17,6 +17,7 @@
 #include <linux/string.h>
 #include <linux/interrupt.h> //中断相关头文件
 #include <linux/timer.h>
+#include <linux/fcntl.h>
 
 #define KEY_MAJOR 234
 #define DEV_COUNT 2
@@ -42,6 +43,7 @@ struct key_dev_t
     struct device *dev;
     struct timer_list timer; //用于消抖的计时器
     wait_queue_head_t wait_list; //等待队列
+    struct fasync_struct *async_queue;//用于异步通知的结构体
 };
 // match table
 const struct of_device_id keys_of_match_table[] = {
@@ -59,6 +61,7 @@ static ssize_t key_drv_read(struct file *filp, char __user *buf, size_t cnt, lof
 static ssize_t key_drv_write(struct file *filp, const char __user *buf, size_t cnt, loff_t *offt);
 static int key_drv_probe(struct platform_device *device);
 static int key_drv_remove(struct platform_device *device);
+static int key_drv_fasync(int fd, struct file *filp, int on);
 //module init and exit
 static int __init key_drv_init(void);
 static void __exit key_drv_exit(void);
@@ -75,6 +78,7 @@ static struct file_operations key_drv_fop = {
     .release = key_drv_release,
     .write = key_drv_write,
     .read = key_drv_read,
+    .fasync = key_drv_fasync,
 };
 /* 用于注册平台驱动的platform_driver结构体 */
 static struct platform_driver key_platform_driver = {
@@ -101,7 +105,12 @@ void key_time_function(unsigned long arg)
         //操作有效
         printk("key status changed value %d\n", value);
         atomic_set(&key_dev->key_value, value);
-        wake_up_interruptible(&((struct key_dev_t *)key_dev)->wait_list);
+        if(waitqueue_active(&((struct key_dev_t *)key_dev)->wait_list))//唤醒等待队列
+        {
+            wake_up_interruptible(&((struct key_dev_t *)key_dev)->wait_list);
+        }
+        if(((struct key_dev_t *)key_dev)->async_queue)//发送信号
+            kill_fasync(&((struct key_dev_t *)key_dev)->async_queue, SIGIO, POLL_IN);
     }
     else
     {
@@ -109,6 +118,12 @@ void key_time_function(unsigned long arg)
         //操作无效不更改键值
     }
     spin_unlock_irqrestore(&key_dev->lock, flags);
+}
+static int key_drv_fasync(int fd, struct file *filp, int on)
+{
+    struct key_dev_t *key_dev = filp->private_data;
+
+    return fasync_helper(fd, filp, on, &(key_dev->async_queue));
 }
 static int key_drv_open(struct inode *inode, struct file *filp)
 {
@@ -154,7 +169,7 @@ static int key_drv_release(struct inode *inode, struct file *filp)
     key_dev->dev_status = true;//释放设备
     spin_unlock_irqrestore(&(key_dev->lock), flags);//释放锁
     printk("key_drv release!\r\n");
-    return 0;
+    return key_drv_fasync(-1, filp, 0);;
 }
 
 static ssize_t key_drv_read(struct file *filp, char __user *buf, size_t cnt, loff_t *offt)
