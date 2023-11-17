@@ -79,6 +79,8 @@ void key_time_function(unsigned long arg)
         //操作有效
         printk("key status changed value %d\n", value);
         //上报按键值
+        input_report_key(key_dev->inputdev, key_dev->kcode, value);
+        input_sync(key_dev->inputdev);
     }
     else
     {
