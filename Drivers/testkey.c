@@ -119,7 +119,6 @@ static int key_gpio_init(struct key_dev_t *key_dev)
         goto freegpio;
     }
     printk("set gpio %d input successfully! \n", key_dev->gpio);
-    return 0;
 
     //irq init
     key_dev->irq = gpio_to_irq(key_dev->gpio);//get irq num
@@ -139,19 +138,27 @@ static int key_gpio_init(struct key_dev_t *key_dev)
         }
         goto freegpio;
     }
+    return 0;
 
 freegpio:
     gpio_free(key_dev->gpio);
+    printk("gpio %d free success!\r\n", key_dev->gpio);
     return -EIO;
 }
 
 
 static void key_gpio_deinit(struct key_dev_t *key_dev)
 {
-    free_irq(key_dev->irq,key_dev);
-    printk("free_irq success!\n");
-    gpio_free(key_dev->gpio);
-    printk("gpio_free success!\n");
+    if(key_dev->irq >= 0)
+    {
+        free_irq(key_dev->irq,key_dev);
+        printk("free_irq success!\n");
+    }
+    if(key_dev->gpio >= 0)
+    {
+        gpio_free(key_dev->gpio);
+        printk("gpio_free success!\n");
+    }
 }
 /*
 key_dev: 按键设备的结构体指针
@@ -204,10 +211,13 @@ static int key_dev_init(struct key_dev_t *key_dev)
 //错误处理
 freeinput_dev:
     input_free_device(key_dev->inputdev);
+    pr_err("input_free_device ! \n");
 gpiodeinit:
     key_gpio_deinit(key_dev);
+    pr_err("key_gpio_deinit ! \n");
 del_timer:
     del_timer_sync(&key_dev->timer);
+    pr_err("del_timer_sync ! \n");
     return retvalue;
 }
 
@@ -221,6 +231,8 @@ static int key_drv_deinit(struct key_dev_t *key_dev)
         printk("input_free_device success!\n");
     }
     key_gpio_deinit(key_dev);
+    del_timer_sync(&key_dev->timer);
+    pr_err("del_timer_sync ! \n");
     if (key_dev != NULL)
     {
         kfree(key_dev);
@@ -278,6 +290,7 @@ static int key_drv_probe(struct platform_device *device)
         pr_err("can not get kcode !\n");
         goto free_key_dev;
     }
+    printk("get kcode %d !\n", key_devs[index]->kcode);
 
     retvalue = key_dev_init(key_devs[index]);
     if(retvalue != 0)
@@ -290,7 +303,10 @@ static int key_drv_probe(struct platform_device *device)
 
 free_key_dev:
     if (key_devs[index] != NULL)
+    {
         kfree(key_devs[index]);
+        printk("kfree(key_devs[index])\n");
+    }
     return retvalue;
 }
 

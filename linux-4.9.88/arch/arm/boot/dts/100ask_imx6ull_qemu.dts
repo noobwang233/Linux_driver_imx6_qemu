@@ -77,11 +77,10 @@
 			linux,rc-map-name = "rc-100ask-nec";
 			status = "okay";
 	};
-	
-
 
 	key_0 {
 		num = <0>;
+		key_code = <KEY_0>;
 		compatible = "key_gpio";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_keys>;
@@ -93,6 +92,7 @@
 
 	key_1 {
 		num = <1>;
+		key_code = <KEY_1>;
 		compatible = "key_gpio";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_key1>;

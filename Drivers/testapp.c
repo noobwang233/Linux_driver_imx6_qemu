@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
 
     if(argc != 2)
     {
-        printf("Error Usage!\r\n");
+        printf("Error args num, usage: %s /dev/input/eventXX\n", argv[0]);
         return -1;
     }
 
@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
         printf("Can't open file %s\r\n", filename);
         return -1;
     }
-    num = atoi(&filename[strlen(filename) - 1]);
+    num = atoi(&filename[strlen(filename) - 1])-2;
     printf("key %d!\n", num);
 
     while(1)
