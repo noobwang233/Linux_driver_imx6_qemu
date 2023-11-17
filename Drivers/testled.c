@@ -102,7 +102,7 @@ static int led_drv_open(struct inode *inode, struct file *filp)
         return -EIO;
     }
     filp->private_data = led_devs[index];
-    printk("open device file: %s",led_devs[index]->led_pdev->name);
+    printk("open device file: %s\n",led_devs[index]->led_pdev->name);
 
     printk("led_drv open!\r\n");
     return 0;
