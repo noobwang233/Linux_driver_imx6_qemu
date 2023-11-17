@@ -8,9 +8,6 @@
 #include <signal.h>
 #include <linux/input.h>
 
-unsigned char key_sig = 0;
-
-
 int main(int argc, char *argv[])
 {
     int fd, retvalue;
@@ -36,7 +33,7 @@ int main(int argc, char *argv[])
         printf("Can't open file %s\r\n", filename);
         return -1;
     }
-    num = atoi(&filename[strlen(filename) - 1])-2;
+    num = atoi(&filename[strlen(filename) - 1])-3;
     printf("key %d!\n", num);
 
     while(1)
@@ -46,7 +43,7 @@ int main(int argc, char *argv[])
             printf("read file %s failed!\r\n", filename);
             return -1;
         }
-        printf("key %d status: %s \r\n", ev.code - KEY_0 ,(ev.value == 1 ? "pushed":"released"));
+        printf("key %d status: %s \r\n", num ,(ev.value == 1 ? "pushed": (ev.value == 2 ? "repeat" : "released")));
         sprintf(ledfilename, "/dev/led_dev_%d", num);
         led_fd = open(ledfilename, O_RDWR | O_NONBLOCK);
         if(led_fd < 0)
@@ -71,10 +68,17 @@ int main(int argc, char *argv[])
             default: 
                 if(FD_ISSET(led_fd, &writefds)) 
                 {
-                    retvalue = write(led_fd, &ev.value, 1);
-                    if(retvalue < 0){
-                        printf("write file %s failed!\r\n", ledfilename);
-                        return -1;
+                    if(ev.value == 0 || ev.value == 1)
+                    {
+                        retvalue = write(led_fd, &ev.value, 1);
+                        if(retvalue < 0){
+                            printf("write file %s failed!\r\n", ledfilename);
+                            return -1;
+                        }
+                    }
+                    else 
+                    {
+                        printf("key %d repeat, led keep!\n", num);
                     }
                 }
         }
@@ -84,7 +88,6 @@ int main(int argc, char *argv[])
             printf("Can't close file %s\r\n", ledfilename);
             return -1;
         }
-        key_sig = 0;
     }
 
     /* 关闭设备 */
