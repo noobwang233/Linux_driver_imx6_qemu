@@ -9,7 +9,6 @@
 #include <linux/gpio.h>     //gpio子系统相关头文件
 #include <linux/of_gpio.h>  //of_gpio函数相关头文件
 #include <linux/of.h>       //of_函数相关头文件
-#include <linux/miscdevice.h> //miscdevice头文件
 #include <linux/platform_device.h> //platform_device头文件
 #include <linux/of_platform.h> //platform of函数
 #include <asm/string.h>
@@ -17,7 +16,6 @@
 #include <linux/string.h>
 #include <linux/interrupt.h> //中断相关头文件
 #include <linux/timer.h>
-#include <linux/fcntl.h>
 #include <linux/input.h>
 
 #define DEV_COUNT 2
