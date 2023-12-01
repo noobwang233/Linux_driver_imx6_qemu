@@ -13,11 +13,12 @@ struct at24_platform_data {
 // AT24设备结构体定义
 struct at24_dev_data_t
 {
+    dev_t  dev;
     struct i2c_driver *i2cdriver; // i2c_driver结构体
     struct miscdevice *miscdev; //杂项字符结构体
     struct mutex lock;         //互斥锁
     struct i2c_client *client; //因为只有一个i2c地址，所以只用一个指针变量
     struct at24_platform_data chip; //at24xx特有数据
     unsigned num_addresses; //i2c地址数量
-    at24->read_func
+    u8 *writebuf;
 };
