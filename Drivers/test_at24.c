@@ -63,7 +63,7 @@ static struct at24_dev_data_t** at24_dev_list = NULL;
 static uint32_t at24_dev_count = 0;
 //必须有这个，不然装载驱动不成功
 static const struct i2c_device_id at24c02_ids[] = {
-	{ "xxxxyyy",	(kernel_ulong_t)NULL },
+	{ "at24c02" },
 	{ /* END OF LIST */ }
 };
 static const struct of_device_id at24_dev_match_table[] = 
@@ -75,9 +75,9 @@ static const struct of_device_id at24_dev_match_table[] =
 static struct i2c_driver at24_i2c_drv = 
 {
     .probe = at24_drv_probe,
-    .remove = at24_drv_remove,
+    //.remove = at24_drv_remove,
     .driver = {
-        .name = "at24_drv",
+        .name = "at24c02",
         .owner = THIS_MODULE,
 		.of_match_table = at24_dev_match_table,
     },
@@ -388,6 +388,7 @@ static int at24_drv_probe(struct i2c_client *client, const struct i2c_device_id 
 		goto free_misc;
 	}
 	at24_dev_data->client = client;
+	memcpy(client->name, (const char *)client->dev.of_node->name, strlen(client->dev.of_node->name));
     i2c_set_clientdata(client, at24_dev_data);//将设备结构体指针放入client->dev->dev_data中
     return 0;
 free_misc:
