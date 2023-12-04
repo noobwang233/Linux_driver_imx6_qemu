@@ -318,11 +318,11 @@ static int at24_release(struct inode *inode, struct file *filp)
 static ssize_t at24_write(struct file *filp, const char __user *buf, size_t cnt, loff_t *offt)
 {
 	struct at24_dev_data_t *at24 = filp->private_data;
-	at24_write_i2c(at24, buf, offt, cnt)
+	return 0;
 }
 static ssize_t at24_read(struct file *filp, char __user *buf, size_t cnt, loff_t *offt)
 {
-
+	return 0;
 }
 
 /* function definition */
