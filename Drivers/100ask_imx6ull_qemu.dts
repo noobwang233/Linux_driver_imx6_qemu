@@ -203,6 +203,10 @@
 	pinctrl-0 = <&pinctrl_i2c1>;
 	status = "okay";
 
+	at24c02@50{
+		compatible = "at24c02";
+		reg = <0x50>;
+	};
 };
 
 

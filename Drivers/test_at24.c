@@ -61,9 +61,14 @@ static ssize_t at24_write_i2c(struct at24_dev_data_t *at24, const char *buf,unsi
 /* private date definition */
 static struct at24_dev_data_t** at24_dev_list = NULL;
 static uint32_t at24_dev_count = 0;
+//必须有这个，不然装载驱动不成功
+static const struct i2c_device_id at24c02_ids[] = {
+	{ "xxxxyyy",	(kernel_ulong_t)NULL },
+	{ /* END OF LIST */ }
+};
 static const struct of_device_id at24_dev_match_table[] = 
 {
-    {.compatible = "wt,at24c02"},
+    {.compatible = "at24c02"},
     {}
 };
 // i2c_driver结构体
@@ -75,7 +80,8 @@ static struct i2c_driver at24_i2c_drv =
         .name = "at24_drv",
         .owner = THIS_MODULE,
 		.of_match_table = at24_dev_match_table,
-    }
+    },
+	.id_table = at24c02_ids,
 };
 
 static struct file_operations at24_fop = 
@@ -199,10 +205,10 @@ static int at24_del_dev(struct at24_dev_data_t *at24)
 	return 0;
 
 }
+
 static struct at24_dev_data_t* at24_get_dev(dev_t dev)
 {
 	int i;
-	struct at24_dev_data_t** at24_dev_list_temp;
 
 	if(at24_dev_count == 0)
 	{
@@ -318,10 +324,13 @@ static int at24_release(struct inode *inode, struct file *filp)
 static ssize_t at24_write(struct file *filp, const char __user *buf, size_t cnt, loff_t *offt)
 {
 	struct at24_dev_data_t *at24 = filp->private_data;
+
 	return 0;
 }
 static ssize_t at24_read(struct file *filp, char __user *buf, size_t cnt, loff_t *offt)
 {
+	struct at24_dev_data_t *at24 = filp->private_data;
+
 	return 0;
 }
 
@@ -332,8 +341,8 @@ static int at24_drv_probe(struct i2c_client *client, const struct i2c_device_id 
     struct at24_platform_data chip;
     struct at24_dev_data_t *at24_dev_data;
     unsigned num_addresses;
-    
-    //get at24_platform_data, this data should be given in i2c_device_id.driver_data. In this test, i will fix the at24_platform_data by macro definition
+
+    //get at24_platform_data, this data should be given in dts or ... In this test, i will fix the at24_platform_data by macro definition
     chip.byte_len = AT24C02_BYTE_LEN;
     chip.page_size = AT24C02_PAGE_SIZE;
     chip.flags = AT24C02_FLAGS;
@@ -363,7 +372,7 @@ static int at24_drv_probe(struct i2c_client *client, const struct i2c_device_id 
         goto free_at24_dev;
 	}
 	at24_dev_data->miscdev->fops = &at24_fop;
-	at24_dev_data->miscdev->name = client->name;
+	at24_dev_data->miscdev->name = client->dev.of_node->name;
 	retvalue = misc_register(at24_dev_data->miscdev);
 	if(retvalue != 0)
 	{
@@ -371,13 +380,14 @@ static int at24_drv_probe(struct i2c_client *client, const struct i2c_device_id 
 		goto free_misc;
 	}
 	at24_dev_data->dev = MKDEV(10, at24_dev_data->miscdev->minor);//记录设备号
-	printk("at24_dev: %s Major:10 minor:%d", at24_dev_data->client->name, at24_dev_data->miscdev->minor);
+	printk("at24_dev: %s Major:10 minor:%d\n", at24_dev_data->miscdev->name, at24_dev_data->miscdev->minor);
 	retvalue = at24_add_dev(at24_dev_data);
 	if(retvalue != 0)
 	{
 		retvalue = -EIO;
 		goto free_misc;
 	}
+	
     i2c_set_clientdata(client, at24_dev_data);//将设备结构体指针放入client->dev->dev_data中
     return 0;
 free_misc:
@@ -392,17 +402,23 @@ free_at24_dev:
 
 static int at24_drv_remove(struct i2c_client *client)
 {
+	int retvalue = 0;
 	struct at24_dev_data_t *at24_dev_data = i2c_get_clientdata(client);
 
-	misc_deregister(at24_dev_data->miscdev);
+	if(at24_dev_data != NULL)
+	{
+		ERR_DBUG;
+		printk("at24_dev: %s Major:10 minor:%d\n", at24_dev_data->miscdev->name, at24_dev_data->miscdev->minor);
+		misc_deregister(at24_dev_data->miscdev);
+		retvalue = at24_del_dev(at24_dev_data);
+	}
 
-    return 0;
+    return retvalue;
 }
 
 static int __init at24_drv_init(void)
 {
     //注册i2c_driver
-
     return i2c_add_driver(&at24_i2c_drv);
 }
 
