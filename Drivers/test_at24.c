@@ -354,7 +354,7 @@ static int at24_drv_probe(struct i2c_client *client, const struct i2c_device_id 
     num_addresses = 1;
 
     //分配at24_dev_data_t空间,使用devm_kzalloc将分配的内存与设备结构体 struct device 绑定，当设备被注销时，会自动释放此空间
-    at24_dev_data = devm_kzalloc(&client->dev,sizeof(struct at24_dev_data_t), GFP_KERNEL);
+    at24_dev_data = kzalloc(sizeof(struct at24_dev_data_t), GFP_KERNEL);
     if(!at24_dev_data)
         return -ENOMEM;
     //初始化at24_dev_data中的变量
@@ -365,7 +365,7 @@ static int at24_drv_probe(struct i2c_client *client, const struct i2c_device_id 
     at24_dev_data->i2cdriver = &at24_i2c_drv;
 	//使用miscdev注册设备
 	//申请一个miscdev空间
-	at24_dev_data->miscdev = devm_kzalloc(&client->dev,sizeof(struct miscdevice), GFP_KERNEL);
+	at24_dev_data->miscdev = kzalloc(sizeof(struct miscdevice), GFP_KERNEL);
 	if(!at24_dev_data)
 	{
 		retvalue = -ENOMEM;
@@ -387,7 +387,7 @@ static int at24_drv_probe(struct i2c_client *client, const struct i2c_device_id 
 		retvalue = -EIO;
 		goto free_misc;
 	}
-	
+	at24_dev_data->client = client;
     i2c_set_clientdata(client, at24_dev_data);//将设备结构体指针放入client->dev->dev_data中
     return 0;
 free_misc:
@@ -403,14 +403,17 @@ free_at24_dev:
 static int at24_drv_remove(struct i2c_client *client)
 {
 	int retvalue = 0;
-	struct at24_dev_data_t *at24_dev_data = i2c_get_clientdata(client);
+	struct at24_dev_data_t *at24_dev_data = (struct at24_dev_data_t *)i2c_get_clientdata(client);
 
 	if(at24_dev_data != NULL)
 	{
-		ERR_DBUG;
-		printk("at24_dev: %s Major:10 minor:%d\n", at24_dev_data->miscdev->name, at24_dev_data->miscdev->minor);
 		misc_deregister(at24_dev_data->miscdev);
 		retvalue = at24_del_dev(at24_dev_data);
+		if(retvalue == 0)
+		{
+			kfree(at24_dev_data->miscdev);
+			kfree(at24_dev_data);
+		}
 	}
 
     return retvalue;
