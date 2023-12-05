@@ -18,10 +18,9 @@
 #define AT24C02_BYTE_LEN 2048/8 //2k bit 
 #define AT24C02_PAGE_SIZE AT24C02_BYTE_LEN/32 //32page
 #define AT24C02_FLAGS 0
-#define AT24C02_MAX_IO_COUNT 7 // max io byte every time
+#define AT24C02_MAX_IO_COUNT 8 // max io byte every time
 #define AT24C02_WRITE_TIMEOUT 25
-#define ERR_DBUG(st)  pr_err("%s, LINE %d : %s \n", __func__, __LINE__, st)
-
+#define ERR_DBUG(fmt, ...)  	printk(KERN_ERR "%s, LINE %d :  " pr_fmt(fmt), __func__, __LINE__, ##__VA_ARGS__)
 #define loop_until_timeout(tout, op_time)				\
 	for (tout = jiffies + msecs_to_jiffies(AT24C02_WRITE_TIMEOUT), op_time = 0; \
 	     op_time ? time_before(op_time, tout) : true;		\
@@ -44,7 +43,7 @@ static void __exit at24_drv_exit(void);
 // get and add at24_dev_t
 static int at24_add_dev(struct at24_dev_data_t *at24);
 static int at24_del_dev(struct at24_dev_data_t *at24);
-static int at24_del_all_dev(void);
+//static int at24_del_all_dev(void);
 static struct at24_dev_data_t* at24_get_dev(dev_t dev);
 // // 这个函数用于确保每次写入count个字节数量之后，不超过下一页的起始地址
 // static size_t at24_adjust_write_count(struct at24_dev_data_t *at24, unsigned int offset, size_t count);
@@ -56,12 +55,12 @@ static struct at24_dev_data_t **at24_dev_list = NULL;
 static uint32_t at24_dev_count = 0;
 //必须有这个，不然装载驱动不成功
 static const struct i2c_device_id at24c02_ids[] = {
-	{ "at24c02" },
+	{ "at24cxx" },
 	{ /* END OF LIST */ }
 };
 static const struct of_device_id at24_dev_match_table[] = 
 {
-    {.compatible = "at24c02"},
+    {.compatible = "at24c02"}, //.data 可以放具体设备是参数吗
     {}
 };
 // i2c_driver结构体
@@ -70,7 +69,7 @@ static struct i2c_driver at24_i2c_drv =
     .probe = at24_drv_probe,
     .remove = at24_drv_remove,
     .driver = {
-        .name = "at24c02",
+        .name = "at24_drv",
         .owner = THIS_MODULE,
 		.of_match_table = at24_dev_match_table,
     },
@@ -86,22 +85,6 @@ static struct file_operations at24_fop =
 	.open = at24_open,
 };
 
-static int at24_del_all_dev(void)
-{
-	int i;
-
-	if(at24_dev_list == NULL)
-		return 0;
-
-	for(i = 0; i < at24_dev_count; i++)
-	{
-		if(at24_dev_list[i] != NULL)
-			kfree(at24_dev_list[i]);
-	}
-	kfree(at24_dev_list);
-	at24_dev_count = 0;
-}
-
 static int at24_add_dev(struct at24_dev_data_t *at24)
 {
 	struct at24_dev_data_t** at24_dev_list_temp;
@@ -112,7 +95,7 @@ static int at24_add_dev(struct at24_dev_data_t *at24)
 		at24_dev_list_temp = kzalloc(sizeof(struct at24_dev_data_t *) * (at24_dev_count + 1), GFP_KERNEL);
 		if(at24_dev_list_temp == NULL)
 		{
-			ERR_DBUG("at24_add_dev: kzalloc failed!");
+			ERR_DBUG("at24_add_dev: kzalloc failed!\n");
 			return -ENOMEM;
 		}
 		memcpy(at24_dev_list_temp, at24_dev_list, sizeof(struct at24_dev_data_t *) * (at24_dev_count));
@@ -126,7 +109,7 @@ static int at24_add_dev(struct at24_dev_data_t *at24)
 		at24_dev_list = kzalloc(sizeof(struct at24_dev_data_t *), GFP_KERNEL);
 		if(at24_dev_list == NULL)
 		{
-			ERR_DBUG("at24_add_dev: kzalloc failed!");
+			ERR_DBUG("at24_add_dev: kzalloc failed!\n");
 			return -ENOMEM;
 		}
 		at24_dev_list[0] = at24;//add at24 to the end of list
@@ -142,13 +125,13 @@ static int at24_del_dev(struct at24_dev_data_t *at24)
 
 	if(at24_dev_count == 0)
 	{
-		ERR_DBUG("the at24_dev_list is NULL!");
+		ERR_DBUG("the at24_dev_list is NULL!\n");
 		return -EIO;
 	}
 
 	if(at24 == NULL)
 	{
-		ERR_DBUG("the at24_dev is NULL!");
+		ERR_DBUG("the at24_dev is NULL!\n");
 		return -EIO;
 	}
 
@@ -160,14 +143,14 @@ static int at24_del_dev(struct at24_dev_data_t *at24)
 	}
 	if(i >= at24_dev_count)
 	{
-		ERR_DBUG("can not find at24_dev");
+		ERR_DBUG("can not find at24_dev\n");
 		return -EIO;
 	}
 	//创建at24_dev_count - 1 个struct at24_dev_data_t *空间
 	at24_dev_list_temp = kzalloc(sizeof(struct at24_dev_data_t *) * (at24_dev_count - 1), GFP_KERNEL);
 	if(at24_dev_list_temp == NULL)
 	{
-		ERR_DBUG("at24_add_dev: kzalloc failed!");
+		ERR_DBUG("at24_add_dev: kzalloc failed!\n");
 		return -ENOMEM;
 	}
 	//拷贝前i个
@@ -199,7 +182,7 @@ static struct at24_dev_data_t* at24_get_dev(dev_t dev)
 
 	if(at24_dev_count == 0)
 	{
-		ERR_DBUG("the at24_dev_list is NULL!");
+		ERR_DBUG("the at24_dev_list is NULL!\n");
 		return NULL;
 	}
 	//find the positon of this at24 in at24_dev_list 第i+1个
@@ -210,7 +193,7 @@ static struct at24_dev_data_t* at24_get_dev(dev_t dev)
 	}
 	if(i >= at24_dev_count)
 	{
-		ERR_DBUG("can not find at24_dev");
+		ERR_DBUG("can not find at24_dev\n");
 		return NULL;
 	}
 	return at24_dev_list[i];
@@ -268,6 +251,7 @@ static ssize_t at24_write_i2c(struct at24_dev_data_t *at24, const char *buf,
 	client = at24->client;
 	//count = at24_adjust_write_count(at24, offset, count);
 
+	ERR_DBUG("client->addr : %d!\n", client->addr);
 	msg.addr = client->addr;
 	msg.flags = 0;
 
@@ -296,7 +280,12 @@ static int at24_open(struct inode *inode, struct file *filp)
 {
 	struct at24_dev_data_t *at24 = at24_get_dev(inode->i_rdev);
 
-	printk("open at24_dev:%s Major:10 minor:%d", at24->client->name, at24->miscdev->minor);
+	if(at24 == NULL)
+	{
+		ERR_DBUG("at24_get_dev failed!\n");
+		return -ENOMEM;
+	}
+	printk("open at24_dev:%s Major:10 minor:%d\n", at24->client->name, at24->miscdev->minor);
 	filp->private_data = at24;
 
 	return 0;
@@ -308,15 +297,42 @@ static int at24_release(struct inode *inode, struct file *filp)
 }
 static ssize_t at24_write(struct file *filp, const char __user *buf, size_t cnt, loff_t *offt)
 {
-	//struct at24_dev_data_t *at24 = filp->private_data;
+	int retvalue;
+	unsigned char buffer[8];
+	struct at24_dev_data_t *at24 = (struct at24_dev_data_t *)filp->private_data;
 
-	return 0;
+	//ERR_DBUG("at24_dev:%s Major:10 minor:%d\n", at24->client->name, at24->miscdev->minor);
+	    
+	retvalue = copy_from_user(buffer, buf, cnt);
+	if(retvalue < 0)
+	{
+		ERR_DBUG("copy_from_user failed!\n");
+	}
+	retvalue = at24_write_i2c(at24, buffer, 0, cnt);
+	if(retvalue < 0)
+	{
+		ERR_DBUG("at24_write_i2c failed!\n");
+	}
+	return retvalue;
 }
 static ssize_t at24_read(struct file *filp, char __user *buf, size_t cnt, loff_t *offt)
 {
-	//struct at24_dev_data_t *at24 = filp->private_data;
+	int retvalue;
+	unsigned char buffer[8];
+	struct at24_dev_data_t *at24 = (struct at24_dev_data_t *)filp->private_data;
 
-	return 0;
+
+	retvalue = at24_read_i2c(at24, buffer, 0, cnt);
+	if(retvalue < 0)
+	{
+		ERR_DBUG("at24_read_i2c failed!\n");
+	}
+	retvalue = copy_to_user(buf, buffer, cnt);
+	if(retvalue < 0)
+	{
+		ERR_DBUG("copy_from_user failed!\n");
+	}
+	return retvalue;
 }
 
 /* function definition */
@@ -333,7 +349,7 @@ static int at24_drv_probe(struct i2c_client *client, const struct i2c_device_id 
     chip.flags = AT24C02_FLAGS;
     // check the functionality if it supports i2c
     if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		ERR_DBUG("i2c adapter doesn't support i2c func!");
+		ERR_DBUG("i2c adapter doesn't support i2c func!\n");
         return -EPFNOSUPPORT;
     }
     // i2c地址个数
@@ -343,7 +359,7 @@ static int at24_drv_probe(struct i2c_client *client, const struct i2c_device_id 
     at24_dev_data = devm_kzalloc(&client->dev, sizeof(struct at24_dev_data_t), GFP_KERNEL);
     if(!at24_dev_data)
 	{
-		ERR_DBUG("devm_kzalloc failed!");
+		ERR_DBUG("devm_kzalloc failed!\n");
         return -ENOMEM;
 	}
     //初始化at24_dev_data中的变量
@@ -357,7 +373,7 @@ static int at24_drv_probe(struct i2c_client *client, const struct i2c_device_id 
 	at24_dev_data->miscdev =devm_kzalloc(&client->dev, sizeof(struct miscdevice), GFP_KERNEL);
 	if(!at24_dev_data)
 	{
-		ERR_DBUG("devm_kzalloc failed!");
+		ERR_DBUG("devm_kzalloc failed!\n");
 		retvalue = -ENOMEM;
         goto free_at24_dev;
 	}
@@ -366,16 +382,23 @@ static int at24_drv_probe(struct i2c_client *client, const struct i2c_device_id 
 	retvalue = misc_register(at24_dev_data->miscdev);
 	if(retvalue != 0)
 	{
-		ERR_DBUG("misc_register failed!");
+		ERR_DBUG("misc_register failed!\n");
 		retvalue = -EIO;
 		goto free_misc;
+	}
+	/* buffer (data + address at the beginning) */
+	at24_dev_data->writebuf = devm_kzalloc(&client->dev, AT24C02_MAX_IO_COUNT + 2, GFP_KERNEL);
+	if (!at24_dev_data->writebuf)
+	{
+		ERR_DBUG("writebuf devm_kzalloc failed!\n");
+		return -ENOMEM;
 	}
 	at24_dev_data->dev = MKDEV(10, at24_dev_data->miscdev->minor);//记录设备号
 	printk("at24_dev: %s Major:10 minor:%d\n", at24_dev_data->miscdev->name, at24_dev_data->miscdev->minor);
 	retvalue = at24_add_dev(at24_dev_data);
 	if(retvalue != 0)
 	{
-		ERR_DBUG("at24_add_dev failed!");
+		ERR_DBUG("at24_add_dev failed!\n");
 		retvalue = -EIO;
 		goto free_misc;
 	}
@@ -405,7 +428,7 @@ static int at24_drv_remove(struct i2c_client *client)
 		retvalue = at24_del_dev(at24_dev_data);
 		if(retvalue != 0)
 		{
-			ERR_DBUG("at24 del dev error!");
+			ERR_DBUG("at24 del dev error!\n");
 		}
 		else 
 		{
@@ -419,14 +442,14 @@ static int at24_drv_remove(struct i2c_client *client)
 static int __init at24_drv_init(void)
 {
     //注册i2c_driver
-	ERR_DBUG("");
+	ERR_DBUG("successfully\n");
     return i2c_add_driver(&at24_i2c_drv);
 }
 
 static void __exit at24_drv_exit(void)
 {
     //注销i2c_driver
-	ERR_DBUG("");
+	ERR_DBUG("successfully\n");
     i2c_del_driver(&at24_i2c_drv);
 }
 
